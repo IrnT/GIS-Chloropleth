@@ -1,0 +1,13 @@
+name: turnoutdifferencecalculator
+title:
+username: irnt
+account: irnt
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 13587975
+bundleId: 9514661
+url: https://irnt.shinyapps.io/turnoutdifferencecalculator/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: .RData

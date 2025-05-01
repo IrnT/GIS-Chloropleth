@@ -1,0 +1,527 @@
+---
+title: "Campaign Resource Allocation Assistant Tool"
+author: "Irene Tait - ict6@georgetown.edu"
+format: 
+  html:
+    theme: united
+    toc: true
+    embed-resources: true
+---
+
+## Introduction
+
+Hello, and welcome to my project writeup for my Fall 2023 final project in **DSAN 6750**: Geographic Information Systems (GIS) for Spatial Data Science! The goal of this project was to create a tool that could be used by campaigns to easily visualize and simulate how to best allocate campaign resources (in this case, canvassers) to maximize turnout of party voters. Having worked on a campaign in 2020 as a volunteer coordinator, it was clear that where we sent our canvassers to knock on doors really mattered. I remember being frustrated that we didn't have a way to represent that information in a visual way, where I could see at a glance where we were most needed, or in a playful way, where I could experiment with what would happen if we implemented different strategies. It is my hope that this initial application can be a jumping off point for creating a truly useful campaign tool to help get Democrats elected.
+
+## The App
+
+The tool itself is a Shiny app, a free and open source web framework useful for developing web-apps. It is especially powerful when combined with Leaflet, a JavaScript library for building interactive maps, that is also a free and open source software. We love the open source internet!
+
+The app is currently hosted on shinyapps.io, which provides limited hosting for Shiny apps at no cost. At time of writing, that limit is 25 active hours a month. If you encounter an error when viewing the app, please let me know and I will gladly fix the issue!
+
+The app can be accessed at the following url: [https://IrnT.shinyapps.io/turnoutdifferencecalculator/](https://IrnT.shinyapps.io/turnoutdifferencecalculator/){target="_blank"}
+
+However, a screengrab of the static version of the tool is available below, if you'd like to see how it looks while remaining on this page:
+
+![](shinyScreengrab.png)
+
+The tool works in a three step process. First, users use the visual cues from the map to select a precinct of interest. When hovering over each precinct (drawn using the geometry of the precinct as stored in the shape file), a pop-up will display the name of the precinct, the current number of untapped Democrats in the district, and the number of canvassers previously sent. The user can then either select a precinct via the dropdown menu, or click on the precinct on the map to automatically select it from the list. Then, the user is prompted to use a slider to send between 0 and 100 canvassers to the precinct in question. Finally, they are prompted to send out these canvassers, which will initiate a recalculation of the map and, in turn, the election results to simulate the results of those canvassers' efforts.
+
+Each canvasser will then be simulated to knock on around doors in the precinct, attempting to garner votes for the candidate in question. The formula for this is as follows:
+
+$$B = U * D * C * P$$
+
+where $U$ is the number of untapped Democrats & NPPs in the precinct, $D$ is the number of doors each canvasser knocks on (assuming one voter per door, which isn't quite right), $C$ is the number of canvassers sent to the precinct, $P$ is the estimated percent turnout from the canvassing activity (ie, the chance that contact with a canvasser will inspire a voter to cast their ballot for the Democratic candidate), and $B$ is the number of resulting ballots cast for the Democratic candidate. $B$ is then added to the total vote tallies for the entire district, and subtracted from $U$. 
+
+If the user attempts to send too high a number of canvassers to a district, such that canvassers would prove redundant by not having untapped Dem doors to knock upon ($B>U$), the tool will refuse to update and instead inform the user this would not be an efficient use of canvasser time.
+
+$U$ is pre-calculated per precinct using logic described in the "Data Transformation" section, and $C$ is input by the user via the slider function of the tool. $D$ and $P$ are pre-determined values, created based on research I did on overall campaign efficacy. In a future iteration of this tool, ideally these would be input by the user at the start of the session. For now, I assume that each canvasser can reach 62.5 doors ($D=62.5$), which was established by using metrics reported by the Macron campaign, and that the effects of canvassing have an estimated increase in voter turnout of 9% ($P=0.09$), as found by Middleton and Green (2008) - see the end of this report for links to these sources!
+
+Providing that the user has not entered too high a number of canvassers, the map would re-update its layers to reflect the altered vote result in the district. The user would see a small message at the bottom of the map informing them of the change that has occurred in the district, and the Current Election Results section on the bottom left would update its vote counts accordingly and change the result outcome if this canvas effort pushed one party ahead of another. Since this is being simulated in a heavily Democratic district, that change is impossible to observe, but the functionality is still there.
+
+The user can then repeat these steps as many times as they desire: Select precinct, determine canvasser count, recalculate. Each calculation is cumulative, so canvassers sent to one district will be accounted for when sending a batch to another. If the user wants to try again with a different approach, they can press the "Reset to historical" button, which simply wipes the slate clean by reloading the original dataset. And then they can start again!
+
+## The Data
+
+The data used to make this tool has been compiled from three sources. The first set and arguably most important is the shapefile containing the election tallies from 2020. These data were sourced from the Harvard Dataverse, compiled by the Voting and Election Science Team in 2020 shortly after the election. The dataset contains ESRI shapefiles for each state containing precinct-level general election results for the 2020 presidential election. Voters in this election had a choice from several candidates for President, including several third parties, and the vote tallies reflect this. This dataverse approach was chosen in lieu of voter rolls, which usually require filling out paperwork and paying the county in question, or proprietary voter databases such as PDI, which are also behind paywalls.
+
+From the files contained within the Harvard dataverse dataset, I was able to pull out the precinct information for Congressional District 11, my home district at the time of the election in 2020. I picked this district partly for sentimentality, but primarily because it is a congressional district entirely contained within one county boundary, making the calculations behind the tool a bit easier to perform, and because the Contra Costa County Clerk Recorder does an excellent job of reporting on vote results.
+
+This leads me to the second source of data: the election results as reported by the county. These were not broken down into precinct-level results, which was unfortunate, but they did contain information on the number of ballots cast county-wide, as well as the turnout percentage of registered voters. These proved key metrics in calculating $U$, as shown below; see the Assumptions section for more information on how these were used to build the tool, and the Data Transformation section to see those assumptions in action.
+
+The third piece of data was a report from the California Secretary of State on the number of registered voters in each county just prior to the election. This report also contained information on what percentage of Contra Costa County voters had registered with each party. This was also instrumental in calculating the number of untapped Democrats in each voting precinct. 
+
+## The Assumptions
+
+**Assumption 1**: Party registration distribution is consistent across the county regardless of precinct.
+
+This assumption allows us to extrapolate from known quantities - percentage of registered voters across the entire county who below to each individual party - to the unknown quantities - the percentage of registered voters in each precinct who belong to each party. While this is a deeply naive assumption that is unlikely to be true in a real world scenario, it is necessary to assume unless the data the tool is pulling from has direct access to by-precinct voter registration information, which usually requires purchasing of data. This would be easily rectifiable by a campaign with budget for exactly such things, but broke grad students such as myself are a tad more limited, alas.
+
+**Assumption 2**: Voter turnout is consistent across both party registration and precincts.
+
+Similar to the first assumption, holding voter turnout consistent across party registration and precincts allows us to estimate the number of voters in each precinct - based on the above number of per-precinct registered voters - who did NOT vote for President in the 2020 elections. While this number is a known quantity across the entire county, it is not known per-precinct, at least in the data we have access to. 
+
+**Assumption 3**: Voters cannot be convinced to vote against their party, and 100% of voters for a candidate are registered for that candidate's party.
+
+This is really two assumptions rolled into one, but both result in the same effect in the data behind the tool. The data we have access to is vote tallies by district, which are voter-per-candidate and not voter-per-registration. In order to translate this into a number of uncast ballots of each party, we assume that every ballot cast for a Democratic candidate was from a registered Democrat, that registered Democrats would never vote for any other party candidate, and that this is true for every party represented in the election. This is patently false - we have many examples of people voting across party lines, for myriad reasons - but is a necessary assumption to translate ballots cast for a candidate into registered voters for that candidate's party. Again, this would be solved with more granular data.
+
+**Assumption 4**: NPP voters can be convinced to vote for a Democratic candidate, and at exactly the same rate as registered Democrats.
+
+No party preference (NPP) voters posed a bit of a challenge when deciding the rules behind the tool. On the one hand, throwing them all away and saying to only target Democrats felt like a waste, as about 25% of the county is registered as NPP, the second largest group after Democrats (about 50%). As California has open primaries, not declaring oneself a Democrat has no negative effects on who a voter can and cannot vote for, and thus is not an uncommon choice. I personally know several folks in this district who share many of the same priorities in politics as the Democratic Party, yet have chosen to register as NPP as an indication that they are not tribally aligned with the Democrats and may prefer an alternate party candidate in certain elections. However, this is not always the case with NPP voters, as again I know several in the county who would chose to refrain from voting rather than vote for a Democrat. One option I considered was to apply the same county-wide percentages again (that half of NPPs are Dems, 20% are Republicans, etc) but this seemed like muddying the waters with little evidence that this approach would be helpful. So, I opted to go with the assumption that, if a voter was registered NPP, given contact with a canvasser and a meaningful human connection, they *could* be convinced to vote for a Democratic candidate, at the same overall rate as registered Democrats. Individual campaigns would know better if this holds true for their targeted demographic, and would be able to accept or reject this assumption easily with a tweak to one or two lines of code. 
+
+**Assumption 5**: 3rd party candidates will never reach a higher threshold than a Democratic or Republican candidate (Duverger's Law), so under first-past-the-post voting, their vote tallies are irrelevant in determining victory.
+
+Since prior assumption 3 holds that we cannot sway third party voters away from a candidate, they cannot be added to the potential pool of untapped voters for our hypothetical Democratic candidate. This is not quite right, as it is not uncommon in open-primary states like California for voters to register with a smaller party, but still vote in mainstream elections for a candidate from a similar (or perhaps just "less different than the other guy") main party. However, this is a natural knock-on effect from dealing with data that determines voter registration by vote tallies as opposed to actual voter rolls. Should a campaign utilize this tool by feeding it voter roll data, it would not be difficult to determine if registered voters for an ideologically similar group (such as the Greens, or Peace and Freedom) should be considered untapped voters or not when deciding to send where to send canvassers. 
+
+While third party candidates and the votes they draw can act as spoiler effects for mainstream parties with similar ideology per [Duverger's Law](https://en.wikipedia.org/wiki/Duverger%27s_law) (which posits that in first-past-the-post and winner-take-all voting systems like we have here in the US of A, two main parties emerge and third, minor parties cannot be victorious), it would be highly unlikely for a third party candidate to achieve victory in our elections without significant reform. So for now, we will consider the next biggest party, the Republicans, as our only competition, and ignore the smaller parties entirely in determining who is able to be victorious in the simulation.
+
+**Assumption 6**: *Competing parties are not increasing the turnout of their party, nor are they courting NPP voters.*
+
+This is, perhaps, the most naive assumption of all. This simulation tool holds every other element of an election cycle constant. It could be updated to ALSO run a simultaneous "enemy canvasser" effect turning out voters of an alternate party, but that would require intimate knowledge of an opposition party's strategy a campaign is unlikely to possess in enough detail to be effective. This tool also cannot factor in any other element, such as a campaign scandal, a blunder by the opposition, or a surprising event such as, oh, perhaps a worldwide pandemic. 
+
+## The Transformation
+
+As described in the assumptions above, the voter tally data needed to be transformed in order to be usable in the tool. 
+
+The key calculation was to create the number of untapped Democrats $U$ in the precinct. It was achieved using the following formula:
+
+$$U = RVF(1 - T)$$
+where $R$ is the number of registered voters in the county, $V$ is the percentage of total votes cast in the county that originated in this precinct, $F$ is the fraction of county voters who registered as either a Democrat or NPP, and $T$ is the voter turnout percentage expressed as a fraction.
+
+This formula first estimates the number of registered voters that reside in the precinct, by assuming the percentage of cast ballots from the precinct is proportional to the entire number of possible ballots that could come from the district ($R*F$). It then multiplies that estimate by the percentage of registered voters across the county who are registered as either a Democrat or an NPP, resulting in the estimated total number of possibly Democratic voters who are registered in the precinct ($RV*F$). Finally, that number is multiplied by the inverse of the voter turnout ($1-T$), in order to identify the folks in each precinct who: 1) could have cast a ballot, 2) would be likely to vote for a Democrat or could be convinced to, but 3) who did not vote ($RVF(1-T)$). This is our number of untapped Dems, $U$!
+
+Below is the script that achieved this, with a small peek at the resulting dataset containing both the geometry needed for plotting on a map and the fields that create the election results and visual effects. 
+
+```{r}
+#libraries!
+library(sf)
+library(tidyverse)
+
+#Total registered voters in county - R
+registeredVoters <- 703021
+
+#Election Turnout - T
+countyWideTurnout <- 0.8409
+
+#Number of votes cast county-wide - part of V
+ccc <- 581230
+
+#Combined percentage county wide of both Dem and NPP voters - F
+countyWideDemNPPPercent <- 0.7501
+
+#reading in shapefile and transforming to appropriate crs
+pathCA <- "TurnoutDifferenceCalculator/data/ca_2020/ca_2020.shp"
+dataCA <- st_read(pathCA)
+dataCA <- st_transform(dataCA, crs = 4326)
+
+#mutating + filtering for plotting
+deSaulnier <- dataCA %>%
+  
+  #grab only the data from Contra Costa County, which entirely contains US House District 11
+  filter(COUNTY == "Contra Costa") %>%
+  
+  #adds a column to hold the number of canvassers
+  mutate(NumCanvassers = 0) %>%
+  
+  #drops unnecessary columns
+  select(-COUNTY, -CNTY_CODE, -FIPS_CODE, -SRPREC_KEY, -ADDIST, -SDDIST, -BEDIST) %>%
+  
+  #renames for slightly more human readability
+  rename("Precinct" = "SRPREC",
+         "Dem" = "G20PREDBID",
+         "Rep" = "G20PRERTRU",
+         "Liber" = "G20PRELJOR",
+         "Green" = "G20PREGHAW",
+         "AmerIndep" = "G20PREAFUE",
+         "PeaceFreedom" = "G20PREPLAR"
+  ) %>%
+  
+  #creates the percentage of votes in each precinct that were Democratic
+  mutate(DemVoteShare = (Dem / (Dem + Rep + Liber + Green + AmerIndep + PeaceFreedom))) %>%
+  
+  #creates a total votes cast in precinct column
+  mutate(PrecinctVotes = (Dem+Rep+Liber+Green+AmerIndep+PeaceFreedom)) %>%
+  
+  #calculates what percentage this precinct made up of all votes cast in the county (V)
+  mutate(PercVotersInPrecinct = PrecinctVotes / ccc) %>%
+  
+  #this is one of the funky transformations!
+  #this is the number of untapped Dems (or dem-willing NPPs) that are estimated to exist in the precinct (U)
+  #the formula is to multiply the total county wide registered voters (R)
+  #by the percentage of voters this district DID have (V)
+  #to estimate the total number of voters in the precinct
+  #that number is then multiplied by the inverse of the county wide turnout percentage (T)
+  #to estimate the number of voters who did not vote but could have, regardless of party
+  #that is then multiplied by likelihood that any randomly selected voter will be a Democrat or a NPP (75.01%) (F)
+  #which results in the number of people who could be convinced to vote for a Democrat but did not
+  mutate(
+    DidNotVoteDemNPP = 
+      round((PercVotersInPrecinct * registeredVoters * (1 - countyWideTurnout) * countyWideDemNPPPercent), 0)
+  ) %>%
+  
+  #this step isolates only US House District 11, deSaulnier's district
+  filter(CDDIST == 11) %>%
+  
+  #and then removes the house column as it is no longer needed
+  select(-CDDIST)
+
+#a peak at the output!
+head(deSaulnier)
+
+```
+
+## Concluding Thoughts
+
+This process has given me a new respect for the difficulty of aligning non-spatial data onto a spatial dataset. However, I am very excited by this web app and it's opportunities for expansion given new data!
+
+I would very much like to repeat this project with access to voter rolls, which would improve the accuracy and thus the usefulness of the tool. As mentioned previously, I would also like to add more "knobs" for users to turn, such as allowing them to specify conversion chance rates and the number of doors each canvasser can reach. Ideally, this tool could also be deployed over any type of political race, with a bit of legwork behind the scenes to re-do some of the filtering code. And finally, I would like to add a report-out tab of cumulative changes, to help the user keep track of the changes they had made to the map in-app, perhaps with the functionality of comparing multiple simulations side by side.
+
+Thank you for reading this report, and I hope you're as fired up as me about the potentials of this tool to help get Democrats elected. 
+
+## The Application Code
+
+Below is the code for the Shiny app! Peruse at your heart's content.
+
+```{r}
+#| eval: false
+
+## LIBRARIES
+
+library(shiny)
+library(sf)
+library(leaflet)
+library(tidyverse)
+library(rsconnect)
+
+## GLOBAL VARIABLES
+
+#How many voters each canvasser reaches
+avgResourceReach <- 62.5 
+
+#The percent of reached voters convinced to vote
+chanceTurnout <- 0.09
+
+#Total registered voters in county
+registeredVoters <- 703021
+
+#Election Turnout
+countyWideTurnout <- 0.8409
+ccc <- 581230 #num votes cast in contra costa
+
+#Combined percentage county wide of both Dem and NPP voters
+countyWideDemNPPPercent <- 0.7501
+
+### INITIAL DATA PREP ###
+
+#reading in shapefile and transforming to appropriate crs
+pathCA <- "data/ca_2020/ca_2020.shp"
+dataCA <- st_read(pathCA)
+dataCA <- st_transform(dataCA, crs = 4326)
+
+#mutating + filtering for plotting
+#this logic is broken down in an earlier section of the writeup!
+deSaulnier <- dataCA %>%
+  filter(COUNTY == "Contra Costa") %>%
+  mutate(NumCanvassers = 0) %>%
+  select(-COUNTY, -CNTY_CODE, -FIPS_CODE, -SRPREC_KEY, -ADDIST, -SDDIST, -BEDIST) %>%
+  rename("Precinct" = "SRPREC",
+         "Dem" = "G20PREDBID",
+         "Rep" = "G20PRERTRU",
+         "Liber" = "G20PRELJOR",
+         "Green" = "G20PREGHAW",
+         "AmerIndep" = "G20PREAFUE",
+         "PeaceFreedom" = "G20PREPLAR"
+  ) %>%
+  mutate(DemVoteShare = (Dem / (Dem + Rep + Liber + Green + AmerIndep + PeaceFreedom))) %>%
+  mutate(PrecinctVotes = (Dem+Rep+Liber+Green+AmerIndep+PeaceFreedom)) %>%
+  mutate(PercVotersInPrecinct = PrecinctVotes / ccc) %>%
+  mutate(
+    DidNotVoteDemNPP = 
+      round((PercVotersInPrecinct * registeredVoters * (1 - countyWideTurnout) * countyWideDemNPPPercent), 0)
+  ) %>%
+  filter(CDDIST == 11) %>%
+  select(-CDDIST)
+
+## COLOR PALETTE ##
+
+#Color palette selection (defined here so it knows deSaulnier exists!)
+palette <- colorNumeric(
+  palette = c("black", "yellow"),
+  domain = c(deSaulnier$DidNotVoteDemNPP),
+  na.color = "white"
+)
+
+## UI DEFINITION SECTION ##
+
+ui <- fluidPage(
+  
+  #title header
+  titlePanel("Campaign Resource Allocation Assistant"),
+  
+  sidebarLayout(
+    
+    ### SIDEBAR LAYOUT ###
+    sidebarPanel(
+      
+      #initial instructions
+      helpText("Use this tool to simulate voter turnout in precincts across this Congressional district, to be sure that we are effectively reaching untapped Democratic voters.\n\n
+               You can select a precinct from the dropdown list below, or click a precinct on the map on the left."),
+      
+      #precinct dropdown menu
+      selectInput("precinctSelection", "Select Precinct:",
+                  choices = deSaulnier$Precinct),
+      
+      #slider instructions
+      helpText("Here you use the slider to select how many canvassers you'd like to simulate sending to this precinct."),
+      
+      #slider for selecting number of canvassers to send to precinct
+      sliderInput("canvassers", "Canvassers To Send to Precinct",
+                  min = 0, max = 100, value = 5),
+      
+      #press that button kid!
+      helpText("Once you've selected your precinct and used the slider to allocate canvassers, you can press the button below to view the effect this would have on the election!"),
+      
+      #makes the thing to the thing
+      actionButton("update", "Send Canvassers!"),
+      
+      #contextualizes reset to historical
+      helpText("Or, if you'd like to simulate a different tactic, you can click the button below to reset the map to the starting state."),
+      
+      #resets to base DeSaulnier
+      actionButton("reset", "Reset to Historical"),
+      
+      #adds a horizontal bar since it looks nice
+      hr(),
+      
+      #Reportout on how the election currently stands.
+      h4("Current Election Results"),
+      verbatimTextOutput("summaryBox")
+      
+    ),
+    
+    ### MAIN PANEL LAYOUT ###
+    mainPanel(
+      leafletOutput("map", height = "600px"),
+      verbatimTextOutput("warningText")
+    )
+  )
+)
+
+
+## SERVER DEFINITION SECTION ##
+
+server <- function(input, output, session) {
+  
+  #Initialize map data set as cleaned deSaulnier, and make it reactive to input
+  outputData <- reactiveVal(deSaulnier)
+  
+  #Sets messages to empty for next round of actions
+  warnings <- reactiveVal("")
+  
+  ### MAP GENERATION SECTION ###
+  
+  #sets what is displayed in main panel via leaflet
+  output$map <- renderLeaflet({
+    
+    #sends whatever is the current outputData to the map
+    leaflet(outputData()) %>%
+      
+      #this does the background! thank you stadia
+      addTiles() %>%
+      addProviderTiles("Stadia.StamenTonerLite") %>%
+      
+      #this maps the precinct polygons based on the geometry column
+      addPolygons(
+        
+        #below line is just aesthetics
+        color = "black", weight = 1, opacity = 1, fillOpacity = 0.75, 
+        
+        #sets the fill color to the number of unactivated dems/NPPs in the district
+        fillColor = ~palette(DidNotVoteDemNPP),
+        
+        #hover label
+        label = ~paste0("Precinct: ", Precinct, " - ",
+                        "Untapped Dem Voters: ", DidNotVoteDemNPP, " - ",
+                        "Canvasser Sent: ", NumCanvassers),
+        
+        #hopefully the layerID for clicking!
+        layerId = ~Precinct
+      ) %>%
+      
+      #adds a legend
+      addLegend(
+        "topright", pal = palette, opacity = 1,
+        values = ~(DidNotVoteDemNPP), title = "Untapped Dems"
+      )
+    
+  })
+  
+  #sets the map to an observe (meaning, updates on changes to outputData())
+  observe({
+    
+    #clears out old map and tells this one where to go
+    #very similar to above
+    leafletProxy("map") %>%
+      clearShapes() %>%
+      addPolygons(
+        data = outputData(),
+        color = "black", weight = 1, opacity = 1, 
+        fillOpacity = 0.75, fillColor = ~palette(DidNotVoteDemNPP),
+        label = ~paste0("Precinct: ", Precinct, " - ",
+                        "Untapped Dem Voters: ", DidNotVoteDemNPP, " - ",
+                        "Canvasser Sent: ", NumCanvassers),
+        layerId = ~Precinct
+      )
+  })
+
+  ### MINOR TWEAK - WHAT HAPPENS WHEN THEY CLICK ON THE MAP ###
+  #this will hopefully alter it so the dropdown menu will auto populate to the clicked district
+  observeEvent(input$map_shape_click, {
+    clicked_precinct <- input$map_shape_click$id
+    updateSelectInput(session, "precinctSelection", selected = clicked_precinct)
+  })
+  
+  ### WHAT HAPPENS WHEN THEY PRESS SEND ###
+  observeEvent(input$update, {
+    
+    #requires that there be a precinct selection to run
+    req(input$precinctSelection)
+    
+    #slices just the selected precinct for validations
+    currPrec <- outputData() %>% filter (Precinct == input$precinctSelection)
+    
+    #saves the number of activated dems that would result
+    activatedDems <- round((input$canvassers * avgResourceReach * chanceTurnout),0)
+    
+    #resets warnings, in case that didn't already happen
+    warnings("")
+    
+    #checks to make sure that we wouldn't go above the number of unactivated Dems
+    #if that is the case, exit this prematurely without updating the map
+    #warn the user if so
+    if(activatedDems > currPrec$DidNotVoteDemNPP){
+      warnings("Not enough Dems to activate for canvasser time to be useful!\nTry sending fewer canvassers, or select a different precinct.")
+      return()
+    }
+    
+    #changes to dataframe behind map!
+    updated <- outputData() %>%
+      
+      #update with number of canvassers sent
+      mutate(NumCanvassers = ifelse(
+        Precinct == input$precinctSelection,
+        input$canvassers,
+        NumCanvassers)
+      ) %>%
+      
+      #update Dem count based on number activated above
+      mutate(
+        Dem = ifelse(
+          Precinct == input$precinctSelection,
+          Dem + activatedDems, #equation for recalc goes here!,
+          Dem)
+      ) %>%
+      
+      #reduce unactivated voter count
+      mutate(DidNotVoteDemNPP = ifelse(
+        Precinct == input$precinctSelection,
+        DidNotVoteDemNPP - activatedDems,
+        DidNotVoteDemNPP)
+      ) %>%
+      
+      #add activated votes to precinct tallies
+      mutate(PrecinctVotes = ifelse(
+        Precinct == input$precinctSelection,
+        PrecinctVotes + activatedDems,
+        PrecinctVotes
+        )
+      )
+    
+    #sends update dataframe to map!
+    outputData(updated)
+    
+    #tells the user what changed
+    report <- paste0(input$canvassers, " canvassers sent to ", input$precinctSelection, ", to knock on ",
+                     round((input$canvassers * avgResourceReach), 0), " doors, activating ", activatedDems, " voters!")
+    warnings(report)
+  })
+  
+  ### WHAT HAPPENS WHEN THEY HIT RESET ##
+  
+  #simply passes outputData the original version of deSaulnier
+  observeEvent(input$reset, {
+    outputData(deSaulnier)
+  })
+  
+  ### STAT OUTPUT SECTION ###
+  
+  #determines that the stats will be reactive to any changes in outputData
+  summaryStats <- reactive({
+    curr <- outputData()
+    
+    #saving stats to variables
+    demVotes <- sum(curr$Dem)
+    repVotes <- sum(curr$Rep)
+    winner <- ifelse(
+      demVotes > repVotes,
+      "Democratic Victory",
+      "Republican Victory"
+    )
+    
+    #saves this all to a list that can be referenced later
+    list(
+      demVotes = demVotes,
+      repVotes = repVotes,
+      winner = winner
+    )
+  })
+  
+  #sends the above generated stats to the sidepanel whenever they change
+  output$summaryBox <- renderPrint({
+    
+    #calls summaryStats to get latest tallies
+    stats <- summaryStats()
+    
+    #string that is being output
+    cat(
+      "Total Dem Votes in District: ", stats$demVotes, "\n",
+      "Total Rep Votes in District: ", stats$repVotes, "\n",
+      "Result: ", stats$winner
+    )
+  })
+  
+  ### USER MESSAGES SECTION ###
+  #creates and sends whatever warning text exists to the bottom of the mainpanel
+  #this is how the user knows what has changed
+  
+  output$warningText <- renderText({
+    warnings()
+    })
+  
+  observeEvent(warnings(), {
+    output$warningText <- renderText({ warnings() })
+  })
+  
+}
+
+## WHERE THE MAGIC HAPPENS ##
+
+# Run the application 
+shinyApp(ui = ui, server = server)
+
+
+```
+
+## References
+
+California Secretary of State, Elections Division. "Report of Registration as of October 19, 2020: Registration by County." Published October 19, 2020. Accessed December 2, 2024. https://elections.cdn.sos.ca.gov/ror/15day-gen-2020/county.pdf.
+
+Voting and Election Science Team, 2020. "2020 Precinct-Level Election Results." Harvard Dataverse. Accessed December 2, 2024. https://doi.org/10.7910/DVN/K7760H.
+
+Contra Costa County Court Recorder, Elections Division. "Presidential General Election Contra Costa County, November 3, 2020, Official Results - Final." Published November 30, 2020. Accessed December 2, 2024. https://www.contracostavote.gov/wp-content/uploads/ElectionSummaryReportRPT-34.pdf.
+
+Middleton, Joel A., and Donald P. Green. 2008. "Do Community-Based Voter Mobilization Campaigns Work Even in Battleground States? Evaluating the Effectiveness of MoveOn's 2004 Outreach Campaign." Quarterly Journal of Political Science 3, no. 1: 63-82. http://dx.doi.org/10.1561/100.00007019.
+
+Halber, Deborah. "The New Wave: Four alumni help reshape politics in France." Harvard Kennedy School Research Insights, Winter 2018. Accessed December 2, 2024. https://www.hks.harvard.edu/research-insights/policy-topics/politics/the-new-wave.
+
+*Thank you to the many folks who tested the prototype versions of this web app!*
+

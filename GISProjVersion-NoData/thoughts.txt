@@ -1,0 +1,20 @@
+Spoke with Jeff 9/9
+Go with political data - think slider on a map showing the turnout of all voters and how that affects the races; see if you can localize to each municipality in a district to see if you increase turnout in a city, does that affect the outcome
+
+Sources:
+
+1. Party voter percentages by county : https://elections.cdn.sos.ca.gov/ror/15day-gen-2020/county.pdf
+2020
+2. Shape file results data : 2020 Data citation: Voting and Election Science Team, 2020, "2020 Precinct-Level Election Results", https://doi.org/10.7910/DVN/K7760H, Harvard Dataverse, V45 
+3. Cocovote 2020 election results (for turnout calculations): https://www.contracostavote.gov/wp-content/uploads/ElectionSummaryReportRPT-34.pdf
+4. Joel A. Middleton and Donald P. Green (2008), "Do Community-Based Voter Mobilization Campaigns Work Even in Battleground States? Evaluating the Effectiveness of MoveOn's 2004 Outreach Campaign", Quarterly Journal of Political Science: Vol. 3: No. 1, pp 63-82. http://dx.doi.org/10.1561/100.00007019 - gives me the 9% number
+5. https://www.hks.harvard.edu/research-insights/policy-topics/politics/the-new-wave - gives the 62.5 contacts per volunteer
+
+Goal: build a Shiny dashboard that shows a race with the overall outcome and results broken down by precinct level, including the number of registered voters of the relevant party who did not vote. The user can then select a precinct, simulating sending more canvassers (or some other resource), and input two campaign determined stats (how many voters one resource can reach and what the increase in turnout likelihood is from contact with that resource). Then, the map is rerun with the imaginary increase in voters of the relevant party to asses if that would be impactful on the race results.
+
+Naive Assumption 1: Percentage distribution of party registration is consistent across the county regardless of precinct
+Naive Assumption 2: Voter turnout is consistent across both party registration and precincts
+Naive Assumption 3: Voters of any party cannot be convinced to vote against their party, and 100% of voters for a candidate are registered for that candidate's party 
+Naive Assumption 4: NPP voters can be convinced to vote for the relevant party
+Naive Assumption 5: 3rd party candidates will never reach a higher threshold than a Democratic or Republican candidate (Duverger's Law), so under first-past-the-post voting, their vote tallies are irrelevant in determining victory.
+Naive Assumption 6: Competing parties are not increasing the turnout of their party, nor are they courting NPP voters.
