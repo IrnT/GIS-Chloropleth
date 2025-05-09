@@ -24,13 +24,13 @@
           const color = `rgb(${yellowValue}, ${yellowValue}, 0)`;  // Transition from black (0,0,0) to yellow (255,255,0)
     
           return {
-              weight: 1,
-              opacity: 1,
-              color: 'black',
-              dashArray: '3',
-              fillOpacity: 0.7,
-              fillColor: color  // Apply calculated color
-              };
+            weight: 1,
+            opacity: 1,
+            color: 'black',
+            dashArray: '0',
+            fillOpacity: 0.7,
+            fillColor: color  // Apply calculated color
+            };
           },
           
           onEachFeature: (feature, layer) => {
@@ -96,6 +96,10 @@
           const value_max = parseInt((parseInt(precinctInfo.DidNotVoteDemNPP) / 63) / 0.09)
           sliderPrecints.max = value_max
           sliderPrecints.value = 0
+
+
+          document.querySelector(`.filter-message`).classList.add(`deactivate`)
+          document.querySelector(`.info-box`).classList.add(`active`)
 
           return value_max
       }
