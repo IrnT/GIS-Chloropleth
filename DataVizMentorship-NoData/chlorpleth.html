@@ -63,6 +63,8 @@
         <!-- Main -->
         <div id="map" class="rounded shadow-sm"></div>
 
+        <div id="map-info"></div>
+
         <!-- Leaflet JS -->
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         <!-- D3 -->
@@ -124,10 +126,10 @@
 
                             // When a precinct is clicked, update the dropdown
                             layer.on('click', function () {
-                                const precinctName = feature.properties.Precinct;
+                                const precinctInfo = feature.properties;
                                 // Update the dropdown menu to select the clicked precinct
-                                precinctSelect.value = precinctName;
-                                zoomToPrecinct(precinctName);  // Zoom to the clicked precinct
+                                precinctSelect.value = precinctInfo.Precinct;
+                                zoomToPrecinct(precinctInfo);  // Zoom to the clicked precinct
                             });
                         }
                 }).addTo(map);
@@ -148,6 +150,31 @@
                             zoomToPrecinct(selectedPrecinct);
                         }
                     });
+
+                // zoom
+                function zoomToPrecinct(precinctInfo) {
+                    calcPrecints(precinctInfo)
+
+                    document.querySelector('#map-info').innerHTML = `
+                        <h3>${precinctInfo.Precinct}</h3>
+                        <h4>Max allowed ${calcPrecints(precinctInfo)}</h4>
+                        <div>
+                            ${precinctInfo.DemVoteShare}-
+                            ${precinctInfo.PercVotersInPrecinct}-
+                            ${precinctInfo.PrecinctVotes}
+                        </div>
+                    `
+                }
+
+                function calcPrecints(precinctInfo) {
+                    //Define the logic for the max precincts
+                    const sliderPrecints = document.getElementById('precinctSlider')                    
+                    const value_max = parseInt((parseInt(precinctInfo.DidNotVoteDemNPP) / 63) / 0.09)
+                    sliderPrecints.max = value_max
+                    sliderPrecints.value = 0
+
+                    return value_max
+                }
 
                 // Update the slider value
                 function updateSliderValue(value) {
